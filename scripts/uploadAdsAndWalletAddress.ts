@@ -1,78 +1,44 @@
 import { Address, toNano } from '@ton/core';
 import { ChainAds } from '../wrappers/ChainAds';
-import { TonClient } from '@ton/ton';
-import { getHttpEndpoint } from "@orbs-network/ton-access";
-import { mnemonicToWalletKey } from "ton-crypto";
-import { WalletContractV4 } from "@ton/ton";
-import dotenv from 'dotenv';
+import { NetworkProvider } from '@ton/blueprint';
 
-dotenv.config();  // 加载 .env 文件
-
-export async function run(args: string[]) {
-    const endpoint = await getHttpEndpoint({ network: "testnet" });
-    const client = new TonClient({ endpoint });
-
-    const ui = {
-        write: (text: string) => console.log(text),
-        input: async (prompt: string): Promise<string> => {
-            const readline = require('readline').createInterface({
-                input: process.stdin,
-                output: process.stdout
-            });
-            return new Promise((resolve) => {
-                readline.question(prompt + ': ', (answer: string) => {
-                    readline.close();
-                    resolve(answer);
-                });
-            });
-        }
-    };
+export async function run(provider: NetworkProvider, args: string[]) {
+    const ui = provider.ui();
 
     const address = Address.parse(args.length > 0 ? args[0] : await ui.input('ChainAds address'));
 
-    if (!(await client.isContractDeployed(address))) {
+    if (!(await provider.isContractDeployed(address))) {
         ui.write(`Error: Contract at address ${address} is not deployed!`);
         return;
     }
 
-    const chainAds = new ChainAds(address);
+    ui.write('Opeing contract...');
+    const chainAds = provider.open(ChainAds.createFromAddress(address));
+    
+    // ad tags: [A ~ Z]
+    const adTags: string = await ui.input('Enter ad tags:');
+    const walletAddress: string = await ui.input('Enter DApp wallet address:');
 
-    const adTags: string = await ui.input('Enter ad tags');
-    const walletAddress: string = await ui.input('Enter wallet address');
+    ui.write('Waiting for Ad tags and wallet address uploaded...');
+    await chainAds.sendUploadAd(provider.sender(), {
+        adTags,
+        walletAddress,
+        value: toNano('0.05'),
+    })
 
-    // 从环境变量获取助记词
-    const mnemonic: string = process.env.WALLET_MNEMONIC || '';
-    if (!mnemonic) {
-        ui.write('Error: WALLET_MNEMONIC not set in environment variables');
-        return;
-    }
+    ui.write('Ad tags and wallet address uploaded successfully!');
 
-    const key = await mnemonicToWalletKey(mnemonic.split(" "));
-    const wallet = WalletContractV4.create({ publicKey: key.publicKey, workchain: 0 });
-    const walletContract = client.open(wallet);
-    const walletSender = walletContract.sender(key.secretKey);
+    ui.write('Waiting for get Ad tags and wallet address...');
 
-    try {
-        await chainAds.sendUploadAd(client.provider(address), walletSender, {
-            adTags,
-            walletAddress,
-            value: toNano('0.05'),
-        });
+    const uploadedAdTags = await chainAds.getAdTags();
+    
+    const uploadedWalletAddress = await chainAds.getWalletAddress();
 
-        ui.write('Ad tags and wallet address uploaded successfully!');
+    ui.write(`Uploaded Ad Tags: ${uploadedAdTags}`);
+    ui.write(`Uploaded Wallet Address: ${uploadedWalletAddress}`);
 
-        ui.write('Waiting for transaction confirmation...');
-        await sleep(10000);
-
-        const uploadedAdTags = await chainAds.getAdTags(client.provider(address));
-        const uploadedWalletAddress = await chainAds.getWalletAddress(client.provider(address));
-
-        ui.write(`Uploaded Ad Tags: ${uploadedAdTags}`);
-        ui.write(`Uploaded Wallet Address: ${uploadedWalletAddress}`);
-
-    } catch (error) {
-        ui.write(`Error: Failed to upload ad. ${error}`);
-    }
+    ui.clearActionPrompt();
+    ui.write('Ad tags and wallet address get successfully!');
 }
 
 function sleep(ms: number) {
