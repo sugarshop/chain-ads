@@ -5,6 +5,8 @@ const op::increase = "op::increase"c; ;; create an opcode from string using the 
 const op::upload_ad = "op::upload_ad"c;
 const op::send_ton = "op::send_ton"c;
 
+const op::upload_budget = "op::upload_budget"c;
+
 ;; storage variables
 
 ;; id is required to be able to create different instances of counters
@@ -17,6 +19,10 @@ global cell ctx_ad_tags;
 global slice ctx_wallet_address;
 global cell  ctx_labels_dict;
 
+global cell ctx_budget_tags;
+global slice ctx_budget_address;
+global cell ctx_budget_labels_dict;
+
 ;; load_data populates storage variables using stored data
 () load_data() impure {
     var ds = get_data().begin_parse();
@@ -28,12 +34,16 @@ global cell  ctx_labels_dict;
         ctx_ad_tags = begin_cell().end_cell();
         ctx_wallet_address = begin_cell().end_cell().begin_parse();
         ctx_labels_dict = new_dict();
+
+        ctx_budget_tags = begin_cell().end_cell();
+        ctx_budget_address = begin_cell().end_cell().begin_parse();
+        ctx_budget_labels_dict = new_dict();
     } else {
         ;; Load data as before
         ctx_id = ds~load_uint(32);
         ctx_counter = ds~load_uint(32);
         
-        ;; Load ad_tags, use empty slice if reference is absent
+        ;; Load ad_tags, use empty cell if reference is absent
         if (ds.slice_refs() > 0) {
             ctx_ad_tags = ds~load_ref();
         } else {
@@ -47,11 +57,32 @@ global cell  ctx_labels_dict;
             ctx_wallet_address = begin_cell().end_cell().begin_parse();
         }
 
-        ;; Load labels_dict, use empty slice if reference is absent
+        ;; Load labels_dict, use empty dict if reference is absent
         if (ds.slice_refs() > 0) {
             ctx_labels_dict = ds~load_dict();
         } else {
             ctx_labels_dict = new_dict();
+        }
+
+        ;; Load budget_tags, use empty cell if reference is absent
+        if (ds.slice_refs() > 0) {
+            ctx_budget_tags = ds~load_ref();
+        } else {
+            ctx_budget_tags = begin_cell().end_cell();
+        }
+        
+        ;; Load budget_address, use empty slice if reference is absent
+        if (ds.slice_refs() > 0) {
+            ctx_budget_address = ds~load_ref().begin_parse();
+        } else {
+            ctx_budget_address = begin_cell().end_cell().begin_parse();
+        }
+
+        ;; Load budget_labels_dict, use empty dict if reference is absent
+        if (ds.slice_refs() > 0) {
+            ctx_budget_labels_dict = ds~load_dict();
+        } else {
+            ctx_budget_labels_dict = new_dict();
         }
     }
     ds.end_parse();
@@ -66,6 +97,9 @@ global cell  ctx_labels_dict;
             .store_ref(ctx_ad_tags) ;; store a reference of a cell ctx_ad_tags.
             .store_ref(begin_cell().store_slice(ctx_wallet_address).end_cell())
             .store_dict(ctx_labels_dict)
+            .store_ref(ctx_budget_tags) ;; store a reference of a cell ctx_budget_tags.
+            .store_ref(begin_cell().store_slice(ctx_budget_address).end_cell())
+            .store_dict(ctx_budget_labels_dict)
             .end_cell()
     );
 }
@@ -115,6 +149,32 @@ global cell  ctx_labels_dict;
         throw_if(62, ctx_wallet_address.slice_empty?());
         
         (_, int key_exists) = ctx_labels_dict.udict_get?(256, wallet_address_hash);
+        throw_if(63, ~ key_exists);
+
+        save_data();
+        return ();
+    }
+    if(op == op::upload_budget) {
+        ;; at least 2 arguments
+        throw_unless(60, in_msg_body.slice_refs() >= 2);
+        
+        cell budget_tags_cell = in_msg_body~load_ref();
+        cell budget_address_cell = in_msg_body~load_ref();
+
+        ;; check data availablity.
+        throw_if(61, budget_tags_cell.begin_parse().slice_empty?());
+
+        ctx_budget_tags = budget_tags_cell;
+        ctx_budget_address = budget_address_cell.begin_parse();
+
+        int budget_address_hash = slice_hash(ctx_budget_address);
+
+        ctx_budget_labels_dict~udict_set_ref(256, budget_address_hash, budget_tags_cell);
+
+        ;; check data availablity.
+        throw_if(62, ctx_budget_address.slice_empty?());
+        
+        (_, int key_exists) = ctx_budget_labels_dict.udict_get?(256, budget_address_hash);
         throw_if(63, ~ key_exists);
 
         save_data();
@@ -180,4 +240,31 @@ cell get_labels() method_id {
         return new_dict();
     }
     return ctx_labels_dict;
+}
+
+cell get_budget_tags() method_id {
+    load_data();
+    ;; return a default value.
+    if (ctx_budget_tags.begin_parse().slice_empty?()) {
+        return begin_cell().store_uint(0, 32).end_cell();
+    }
+    return ctx_budget_tags;
+}
+
+slice get_budget_address() method_id {
+    load_data();
+    ;; return a default value.
+    if (ctx_budget_address.slice_empty?()) {
+        return begin_cell().store_uint(0, 32).end_cell().begin_parse();
+    }
+    return ctx_budget_address;
+}
+
+cell get_budget_labels() method_id {
+    load_data();
+    ;; return a default value.
+    if (ctx_budget_labels_dict.begin_parse().slice_empty?()) {
+        return new_dict();
+    }
+    return ctx_budget_labels_dict;
 }
