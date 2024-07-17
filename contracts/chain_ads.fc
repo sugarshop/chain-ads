@@ -15,11 +15,33 @@ global slice ctx_wallet_address;
 
 ;; load_data populates storage variables using stored data
 () load_data() impure {
-    var ds = get_data().begin_parse(); 
-    ctx_id = ds~load_uint(32);
-    ctx_counter = ds~load_uint(32);
-    ctx_ad_tags = ds~load_ref().begin_parse();
-    ctx_wallet_address = ds~load_ref().begin_parse();
+    var ds = get_data().begin_parse();
+
+    if (ds.slice_empty?()) {
+        ;; Initialize with default values if the data cell is empty
+        ctx_id = 0;
+        ctx_counter = 0;
+        ctx_ad_tags = begin_cell().end_cell().begin_parse();
+        ctx_wallet_address = begin_cell().end_cell().begin_parse();
+    } else {
+        ;; Load data as before
+        ctx_id = ds~load_uint(32);
+        ctx_counter = ds~load_uint(32);
+        
+        ;; Load ad_tags, use empty slice if reference is absent
+        if (ds.slice_refs() > 0) {
+            ctx_ad_tags = ds~load_ref().begin_parse();
+        } else {
+            ctx_ad_tags = begin_cell().end_cell().begin_parse();
+        }
+        
+        ;; Load wallet_address, use empty slice if reference is absent
+        if (ds.slice_refs() > 0) {
+            ctx_wallet_address = ds~load_ref().begin_parse();
+        } else {
+            ctx_wallet_address = begin_cell().end_cell().begin_parse();
+        }
+    }
     ds.end_parse();
 }
 
@@ -29,8 +51,8 @@ global slice ctx_wallet_address;
         begin_cell()
             .store_uint(ctx_id, 32)
             .store_uint(ctx_counter, 32)
-            .store_slice(ctx_ad_tags)
-            .store_slice(ctx_wallet_address)
+            .store_ref(begin_cell().store_slice(ctx_ad_tags).end_cell())
+            .store_ref(begin_cell().store_slice(ctx_wallet_address).end_cell())
             .end_cell()
     );
 }
@@ -57,12 +79,21 @@ global slice ctx_wallet_address;
         ctx_counter += increase_by;
         save_data();
         return ();
-    } 
-    if(op == op::upload_ad){
-        slice ad_tags = in_msg_body~load_ref().begin_parse();
-        slice wallet_address = in_msg_body~load_ref().begin_parse();
-        ctx_ad_tags = ad_tags;
-        ctx_wallet_address = wallet_address;
+    }
+    if(op == op::upload_ad) {
+        ;; at least 2 arguments
+        throw_unless(60, in_msg_body.slice_refs() >= 2);
+        
+        cell ad_tags_cell = in_msg_body~load_ref();
+        cell wallet_address_cell = in_msg_body~load_ref();
+
+        ctx_ad_tags = ad_tags_cell.begin_parse();
+        ctx_wallet_address = wallet_address_cell.begin_parse();
+
+        ;; 可以在这里添加数据验证逻辑
+        throw_if(61, ctx_ad_tags.slice_empty?());
+        throw_if(62, ctx_wallet_address.slice_empty?());
+
         save_data();
         return ();
     }
@@ -86,10 +117,18 @@ int get_id() method_id {
 
 slice get_ad_tags() method_id {
     load_data();
+    ;; return a default value.
+    if (ctx_ad_tags.slice_empty?()) {
+        return begin_cell().store_uint(0, 32).end_cell().begin_parse();
+    }
     return ctx_ad_tags;
 }
 
 slice get_wallet_address() method_id {
     load_data();
+    ;; return a default value.
+    if (ctx_wallet_address.slice_empty?()) {
+        return begin_cell().store_uint(0, 32).end_cell().begin_parse();
+    }
     return ctx_wallet_address;
 }
