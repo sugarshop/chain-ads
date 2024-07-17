@@ -40,7 +40,3 @@ export async function run(provider: NetworkProvider, args: string[]) {
     ui.clearActionPrompt();
     ui.write('Ad tags and wallet address get successfully!');
 }
-
-function sleep(ms: number) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
