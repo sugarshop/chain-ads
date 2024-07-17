@@ -11,6 +11,7 @@ export function chainAdsConfigToCell(config: ChainAdsConfig): Cell {
 
 export const Opcodes = {
     increase: 0x7e8764ef,
+    uploadAd: 0x55b6ede3,
 };
 
 export class ChainAds implements Contract {
@@ -62,5 +63,37 @@ export class ChainAds implements Contract {
     async getID(provider: ContractProvider) {
         const result = await provider.get('get_id', []);
         return result.stack.readNumber();
+    }
+
+    async sendUploadAd(
+        provider: ContractProvider,
+        via: Sender,
+        opts: {
+            adTags: string;
+            walletAddress: string;
+            value: bigint;
+            queryID?: number;
+        }
+    ){
+        await provider.internal(via, {
+            value: opts.value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.uploadAd, 32)
+                .storeUint(opts.queryID ?? 0, 64)
+                .storeSlice(beginCell().storeStringRefTail(opts.adTags).endCell().beginParse())
+                .storeSlice(beginCell().storeStringRefTail(opts.walletAddress).endCell().beginParse())
+                .endCell(),
+        });
+    }
+
+    async getAdTags(provider: ContractProvider) {
+        const result = await provider.get('get_ad_tags', []);
+        return result.stack.readString();
+    }
+
+    async getWalletAddress(provider: ContractProvider) {
+        const result = await provider.get('get_wallet_address', []);
+        return result.stack.readString();
     }
 }

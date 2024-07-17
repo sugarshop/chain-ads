@@ -1,6 +1,7 @@
 #include "imports/stdlib.fc";
 
 const op::increase = "op::increase"c; ;; create an opcode from string using the "c" prefix, this results in 0x7e8764ef opcode in this case
+const op::upload_ad = "op::upload_ad"c; ;; create an opcode from string using the "c" prefix, this results in 0x7e8764f0 opcode in this case
 
 ;; storage variables
 
@@ -9,13 +10,16 @@ const op::increase = "op::increase"c; ;; create an opcode from string using the 
 global int ctx_id;
 global int ctx_counter;
 
+global slice ctx_ad_tags;
+global slice ctx_wallet_address;
+
 ;; load_data populates storage variables using stored data
 () load_data() impure {
     var ds = get_data().begin_parse();
-
     ctx_id = ds~load_uint(32);
     ctx_counter = ds~load_uint(32);
-
+    ctx_ad_tags = ds~load_ref().begin_parse();
+    ctx_wallet_address = ds~load_ref().begin_parse();
     ds.end_parse();
 }
 
@@ -25,6 +29,8 @@ global int ctx_counter;
         begin_cell()
             .store_uint(ctx_id, 32)
             .store_uint(ctx_counter, 32)
+            .store_slice(ctx_ad_tags)
+            .store_slice(ctx_wallet_address)
             .end_cell()
     );
 }
@@ -51,6 +57,14 @@ global int ctx_counter;
         ctx_counter += increase_by;
         save_data();
         return ();
+    } 
+    if(op == op::upload_ad){
+        slice ad_tags = in_msg_body~load_ref().begin_parse();
+        slice wallet_address = in_msg_body~load_ref().begin_parse();
+        ctx_ad_tags = ad_tags;
+        ctx_wallet_address = wallet_address;
+        save_data();
+        return ();
     }
 
     throw(0xffff); ;; if the message contains an op that is not known to this contract, we throw
@@ -68,4 +82,14 @@ int get_counter() method_id {
 int get_id() method_id {
     load_data();
     return ctx_id;
+}
+
+slice get_ad_tags() method_id {
+    load_data();
+    return ctx_ad_tags;
+}
+
+slice get_wallet_address() method_id {
+    load_data();
+    return ctx_wallet_address;
 }
