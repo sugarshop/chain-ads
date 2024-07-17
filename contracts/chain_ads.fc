@@ -2,10 +2,9 @@
 
 
 const op::increase = "op::increase"c; ;; create an opcode from string using the "c" prefix, this results in 0x7e8764ef opcode in this case
-const op::upload_ad = "op::upload_ad"c;
+const op::upload_inventory_ads = "op::upload_inventory_ads"c;
+const op::upload_budget_ads = "op::upload_budget_ads"c;
 const op::send_ton = "op::send_ton"c;
-
-const op::upload_budget = "op::upload_budget"c;
 
 ;; storage variables
 
@@ -14,13 +13,8 @@ const op::upload_budget = "op::upload_budget"c;
 global int ctx_id;
 global int ctx_counter;
 
-;; ad_tags: a list a ad tag
-global cell ctx_ad_tags;
-global slice ctx_wallet_address;
-global cell  ctx_labels_dict;
+global cell  ctx_inventory_labels_dict;
 
-global cell ctx_budget_tags;
-global slice ctx_budget_address;
 global cell ctx_budget_labels_dict;
 
 ;; load_data populates storage variables using stored data
@@ -31,51 +25,20 @@ global cell ctx_budget_labels_dict;
         ;; Initialize with default values if the data cell is empty
         ctx_id = 0;
         ctx_counter = 0;
-        ctx_ad_tags = begin_cell().end_cell();
-        ctx_wallet_address = begin_cell().end_cell().begin_parse();
-        ctx_labels_dict = new_dict();
+        
+        ctx_inventory_labels_dict = new_dict();
 
-        ctx_budget_tags = begin_cell().end_cell();
-        ctx_budget_address = begin_cell().end_cell().begin_parse();
         ctx_budget_labels_dict = new_dict();
     } else {
         ;; Load data as before
         ctx_id = ds~load_uint(32);
         ctx_counter = ds~load_uint(32);
-        
-        ;; Load ad_tags, use empty cell if reference is absent
-        if (ds.slice_refs() > 0) {
-            ctx_ad_tags = ds~load_ref();
-        } else {
-            ctx_ad_tags = begin_cell().end_cell();
-        }
-        
-        ;; Load wallet_address, use empty slice if reference is absent
-        if (ds.slice_refs() > 0) {
-            ctx_wallet_address = ds~load_ref().begin_parse();
-        } else {
-            ctx_wallet_address = begin_cell().end_cell().begin_parse();
-        }
 
         ;; Load labels_dict, use empty dict if reference is absent
         if (ds.slice_refs() > 0) {
-            ctx_labels_dict = ds~load_dict();
+            ctx_inventory_labels_dict = ds~load_dict();
         } else {
-            ctx_labels_dict = new_dict();
-        }
-
-        ;; Load budget_tags, use empty cell if reference is absent
-        if (ds.slice_refs() > 0) {
-            ctx_budget_tags = ds~load_ref();
-        } else {
-            ctx_budget_tags = begin_cell().end_cell();
-        }
-        
-        ;; Load budget_address, use empty slice if reference is absent
-        if (ds.slice_refs() > 0) {
-            ctx_budget_address = ds~load_ref().begin_parse();
-        } else {
-            ctx_budget_address = begin_cell().end_cell().begin_parse();
+            ctx_inventory_labels_dict = new_dict();
         }
 
         ;; Load budget_labels_dict, use empty dict if reference is absent
@@ -94,11 +57,7 @@ global cell ctx_budget_labels_dict;
         begin_cell()
             .store_uint(ctx_id, 32)
             .store_uint(ctx_counter, 32)
-            .store_ref(ctx_ad_tags) ;; store a reference of a cell ctx_ad_tags.
-            .store_ref(begin_cell().store_slice(ctx_wallet_address).end_cell())
-            .store_dict(ctx_labels_dict)
-            .store_ref(ctx_budget_tags) ;; store a reference of a cell ctx_budget_tags.
-            .store_ref(begin_cell().store_slice(ctx_budget_address).end_cell())
+            .store_dict(ctx_inventory_labels_dict)
             .store_dict(ctx_budget_labels_dict)
             .end_cell()
     );
@@ -128,33 +87,27 @@ global cell ctx_budget_labels_dict;
         return ();
     }
 
-    if(op == op::upload_ad) {
+    if(op == op::upload_inventory_ads) {
         ;; at least 2 arguments
         throw_unless(60, in_msg_body.slice_refs() >= 2);
         
-        cell ad_tags_cell = in_msg_body~load_ref();
-        cell wallet_address_cell = in_msg_body~load_ref();
+        cell ad_inventory_tags_cell = in_msg_body~load_ref();
+        cell inventory_wallet_address_cell = in_msg_body~load_ref();
 
         ;; check data availablity.
-        throw_if(61, ad_tags_cell.begin_parse().slice_empty?());
+        throw_if(61, ad_inventory_tags_cell.begin_parse().slice_empty?());
 
-        ctx_ad_tags = ad_tags_cell;
-        ctx_wallet_address = wallet_address_cell.begin_parse();
+        int wallet_address_hash = slice_hash(inventory_wallet_address_cell.begin_parse());
 
-        int wallet_address_hash = slice_hash(ctx_wallet_address);
-
-        ctx_labels_dict~udict_set_ref(256, wallet_address_hash, ad_tags_cell);
-
-        ;; check data availablity.
-        throw_if(62, ctx_wallet_address.slice_empty?());
+        ctx_inventory_labels_dict~udict_set_ref(256, wallet_address_hash, ad_inventory_tags_cell);
         
-        (_, int key_exists) = ctx_labels_dict.udict_get?(256, wallet_address_hash);
+        (_, int key_exists) = ctx_inventory_labels_dict.udict_get?(256, wallet_address_hash);
         throw_if(63, ~ key_exists);
 
         save_data();
         return ();
     }
-    if(op == op::upload_budget) {
+    if(op == op::upload_budget_ads) {
         ;; at least 2 arguments
         throw_unless(60, in_msg_body.slice_refs() >= 2);
         
@@ -164,15 +117,9 @@ global cell ctx_budget_labels_dict;
         ;; check data availablity.
         throw_if(61, budget_tags_cell.begin_parse().slice_empty?());
 
-        ctx_budget_tags = budget_tags_cell;
-        ctx_budget_address = budget_address_cell.begin_parse();
-
-        int budget_address_hash = slice_hash(ctx_budget_address);
+        int budget_address_hash = slice_hash(budget_address_cell.begin_parse());
 
         ctx_budget_labels_dict~udict_set_ref(256, budget_address_hash, budget_tags_cell);
-
-        ;; check data availablity.
-        throw_if(62, ctx_budget_address.slice_empty?());
         
         (_, int key_exists) = ctx_budget_labels_dict.udict_get?(256, budget_address_hash);
         throw_if(63, ~ key_exists);
@@ -215,49 +162,13 @@ int get_id() method_id {
     return ctx_id;
 }
 
-cell get_ad_tags() method_id {
+cell get_inventory_labels() method_id {
     load_data();
     ;; return a default value.
-    if (ctx_ad_tags.begin_parse().slice_empty?()) {
-        return begin_cell().store_uint(0, 32).end_cell();
-    }
-    return ctx_ad_tags;
-}
-
-slice get_wallet_address() method_id {
-    load_data();
-    ;; return a default value.
-    if (ctx_wallet_address.slice_empty?()) {
-        return begin_cell().store_uint(0, 32).end_cell().begin_parse();
-    }
-    return ctx_wallet_address;
-}
-
-cell get_labels() method_id {
-    load_data();
-    ;; return a default value.
-    if (ctx_labels_dict.begin_parse().slice_empty?()) {
+    if (ctx_inventory_labels_dict.begin_parse().slice_empty?()) {
         return new_dict();
     }
-    return ctx_labels_dict;
-}
-
-cell get_budget_tags() method_id {
-    load_data();
-    ;; return a default value.
-    if (ctx_budget_tags.begin_parse().slice_empty?()) {
-        return begin_cell().store_uint(0, 32).end_cell();
-    }
-    return ctx_budget_tags;
-}
-
-slice get_budget_address() method_id {
-    load_data();
-    ;; return a default value.
-    if (ctx_budget_address.slice_empty?()) {
-        return begin_cell().store_uint(0, 32).end_cell().begin_parse();
-    }
-    return ctx_budget_address;
+    return ctx_inventory_labels_dict;
 }
 
 cell get_budget_labels() method_id {

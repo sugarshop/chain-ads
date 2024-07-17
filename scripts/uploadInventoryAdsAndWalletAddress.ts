@@ -17,19 +17,19 @@ export async function run(provider: NetworkProvider, args: string[]) {
     
     // ad tags: [A ~ Z]
     const adTagsInput: string = await ui.input('Enter ad tags separated by space:');
-    const walletAddress: string = await ui.input('Enter DApp wallet address:');
+    const inventoryWalletAddress: string = await ui.input('Enter Inventory wallet address:');
 
     // seperate tags by space
-    const adTags: string[] = adTagsInput.trim().split(/\s+/);
+    const inventoryAdTags: string[] = adTagsInput.trim().split(/\s+/);
     
-    ui.write('Ad Tags: ' + adTags.join(', '));
+    ui.write('Ad Tags: ' + inventoryAdTags.join(', '));
 
     ui.write('Waiting for Ad tags and wallet address uploaded...');
-    await chainAds.sendUploadAd(provider.sender(), {
-        adTags,
-        walletAddress,
+    await chainAds.sendInventoryAds(provider.sender(), {
+        adTags: inventoryAdTags,
+        walletAddress: inventoryWalletAddress,
         value: toNano('0.05'),
-    })
+    });
 
     ui.clearActionPrompt();
     ui.write('Ad tags and wallet address uploaded successfully!');
