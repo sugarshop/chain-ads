@@ -14,10 +14,15 @@ export async function run(provider: NetworkProvider, args: string[]) {
 
   const chainAds = provider.open(ChainAds.createFromAddress(address));
 
-  ui.write('Waiting for get counter...');
+  ui.write('Waiting for get ads labels...');
 
-  const counterNow = await chainAds.getCounter();
-
+  const adsLabels = await chainAds.getLabels();
+  
   ui.clearActionPrompt();
-  ui.write(`Counter: ${counterNow} get successfully`);
+  ui.write('adsLabels:');
+  Object.entries(adsLabels).forEach(([key, value]) => {
+    ui.write(`key:  ${key} | value: ${value}`);
+  });
+
+  ui.write(`adsLabels get successfully`);
 }

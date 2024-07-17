@@ -14,6 +14,7 @@ global int ctx_counter;
 
 global slice ctx_ad_tags;
 global slice ctx_wallet_address;
+global cell  ctx_labels_dict;
 
 ;; load_data populates storage variables using stored data
 () load_data() impure {
@@ -25,6 +26,7 @@ global slice ctx_wallet_address;
         ctx_counter = 0;
         ctx_ad_tags = begin_cell().end_cell().begin_parse();
         ctx_wallet_address = begin_cell().end_cell().begin_parse();
+        ctx_labels_dict = new_dict();
     } else {
         ;; Load data as before
         ctx_id = ds~load_uint(32);
@@ -43,6 +45,13 @@ global slice ctx_wallet_address;
         } else {
             ctx_wallet_address = begin_cell().end_cell().begin_parse();
         }
+
+        ;; Load labels_dict, use empty slice if reference is absent
+        if (ds.slice_refs() > 0) {
+            ctx_labels_dict = ds~load_dict();
+        } else {
+            ctx_labels_dict = new_dict();
+        }
     }
     ds.end_parse();
     ctx_ad_tags.end_parse();
@@ -57,6 +66,7 @@ global slice ctx_wallet_address;
             .store_uint(ctx_counter, 32)
             .store_ref(begin_cell().store_slice(ctx_ad_tags).end_cell())
             .store_ref(begin_cell().store_slice(ctx_wallet_address).end_cell())
+            .store_dict(ctx_labels_dict)
             .end_cell()
     );
 }
@@ -83,14 +93,28 @@ global slice ctx_wallet_address;
         ctx_counter += increase_by;
         save_data();
         return ();
-    } 
-    if(op == op::upload_ad){
-        slice ad_tags = in_msg_body~load_ref().begin_parse();
-        ad_tags.end_parse();
-        slice wallet_address = in_msg_body~load_ref().begin_parse();
-        wallet_address.end_parse();
-        ctx_ad_tags = ad_tags;
-        ctx_wallet_address = wallet_address;
+    }
+    if(op == op::upload_ad) {
+        ;; at least 2 arguments
+        throw_unless(60, in_msg_body.slice_refs() >= 2);
+        
+        cell ad_tags_cell = in_msg_body~load_ref();
+        cell wallet_address_cell = in_msg_body~load_ref();
+
+        ctx_ad_tags = ad_tags_cell.begin_parse();
+        ctx_wallet_address = wallet_address_cell.begin_parse();
+
+        int wallet_address_hash = slice_hash(ctx_wallet_address);
+
+        ctx_labels_dict~udict_set_ref(256, wallet_address_hash, ad_tags_cell);
+
+        ;; check data availablity.
+        throw_if(61, ctx_ad_tags.slice_empty?());
+        throw_if(62, ctx_wallet_address.slice_empty?());
+        
+        (_, int key_exists) = ctx_labels_dict.udict_get?(256, wallet_address_hash);
+        throw_if(63, ~ key_exists);
+
         save_data();
         return ();
     }
@@ -137,4 +161,22 @@ slice get_ad_tags() method_id {
 slice get_wallet_address() method_id {
     load_data();
     return ctx_wallet_address;
+}
+
+cell get_labels() method_id {
+    load_data();
+    ;; return a default value.
+    if (ctx_wallet_address.slice_empty?()) {
+        return begin_cell().store_uint(0, 32).end_cell().begin_parse();
+    }
+    return ctx_wallet_address;
+}
+
+cell get_labels() method_id {
+    load_data();
+    ;; return a default value.
+    if (dict_empty?(ctx_labels_dict)) {
+        return new_dict();
+    }
+    return ctx_labels_dict;
 }
