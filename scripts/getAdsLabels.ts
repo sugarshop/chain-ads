@@ -21,7 +21,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
   ui.clearActionPrompt();
   ui.write('adsLabels:');
   Object.entries(adsLabels).forEach(([key, value]) => {
-    ui.write(`key:  ${key} | value: ${value}`);
+    ui.write(`key:  ${key} | value: ${value.join(', ')}`);
   });
 
   ui.write(`adsLabels get successfully`);

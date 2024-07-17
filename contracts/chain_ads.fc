@@ -12,7 +12,8 @@ const op::send_ton = "op::send_ton"c;
 global int ctx_id;
 global int ctx_counter;
 
-global slice ctx_ad_tags;
+;; ad_tags: a list a ad tag
+global cell ctx_ad_tags;
 global slice ctx_wallet_address;
 global cell  ctx_labels_dict;
 
@@ -24,7 +25,7 @@ global cell  ctx_labels_dict;
         ;; Initialize with default values if the data cell is empty
         ctx_id = 0;
         ctx_counter = 0;
-        ctx_ad_tags = begin_cell().end_cell().begin_parse();
+        ctx_ad_tags = begin_cell().end_cell();
         ctx_wallet_address = begin_cell().end_cell().begin_parse();
         ctx_labels_dict = new_dict();
     } else {
@@ -34,9 +35,9 @@ global cell  ctx_labels_dict;
         
         ;; Load ad_tags, use empty slice if reference is absent
         if (ds.slice_refs() > 0) {
-            ctx_ad_tags = ds~load_ref().begin_parse();
+            ctx_ad_tags = ds~load_ref();
         } else {
-            ctx_ad_tags = begin_cell().end_cell().begin_parse();
+            ctx_ad_tags = begin_cell().end_cell();
         }
         
         ;; Load wallet_address, use empty slice if reference is absent
@@ -64,7 +65,7 @@ global cell  ctx_labels_dict;
         begin_cell()
             .store_uint(ctx_id, 32)
             .store_uint(ctx_counter, 32)
-            .store_ref(begin_cell().store_slice(ctx_ad_tags).end_cell())
+            .store_ref(ctx_ad_tags) ;; store a reference of a cell ctx_ad_tags.
             .store_ref(begin_cell().store_slice(ctx_wallet_address).end_cell())
             .store_dict(ctx_labels_dict)
             .end_cell()
@@ -94,6 +95,7 @@ global cell  ctx_labels_dict;
         save_data();
         return ();
     }
+
     if(op == op::upload_ad) {
         ;; at least 2 arguments
         throw_unless(60, in_msg_body.slice_refs() >= 2);
@@ -101,7 +103,7 @@ global cell  ctx_labels_dict;
         cell ad_tags_cell = in_msg_body~load_ref();
         cell wallet_address_cell = in_msg_body~load_ref();
 
-        ctx_ad_tags = ad_tags_cell.begin_parse();
+        ctx_ad_tags = ad_tags_cell;
         ctx_wallet_address = wallet_address_cell.begin_parse();
 
         int wallet_address_hash = slice_hash(ctx_wallet_address);
@@ -109,7 +111,8 @@ global cell  ctx_labels_dict;
         ctx_labels_dict~udict_set_ref(256, wallet_address_hash, ad_tags_cell);
 
         ;; check data availablity.
-        throw_if(61, ctx_ad_tags.slice_empty?());
+        slice ad_tags_slice = ad_tags_cell.begin_parse();
+        throw_if(61, ad_tags_slice.slice_empty?());
         throw_if(62, ctx_wallet_address.slice_empty?());
         
         (_, int key_exists) = ctx_labels_dict.udict_get?(256, wallet_address_hash);
@@ -153,8 +156,13 @@ int get_id() method_id {
     return ctx_id;
 }
 
-slice get_ad_tags() method_id {
+cell get_ad_tags() method_id {
     load_data();
+    ;; return a default value.
+    slice ad_tags_slice = ctx_ad_tags.begin_parse();
+    if (ad_tags_slice.slice_empty?()) {
+        return begin_cell().store_uint(0, 32).end_cell();
+    }
     return ctx_ad_tags;
 }
 
