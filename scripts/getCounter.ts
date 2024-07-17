@@ -1,18 +1,23 @@
-import { getHttpEndpoint } from "@orbs-network/ton-access";
-import { TonClient, Address } from "@ton/ton";
+import { Address, toNano } from '@ton/core';
 import { ChainAds } from '../wrappers/ChainAds';
+import { NetworkProvider } from '@ton/blueprint';
 
-export async function run() {
-  // initialize ton rpc client on testnet
-  const endpoint = await getHttpEndpoint({ network: "testnet" });
-  const client = new TonClient({ endpoint });
+export async function run(provider: NetworkProvider, args: string[]) {
+  const ui = provider.ui();
 
-  // open Counter instance by address
-  const counterAddress = Address.parse("EQBEIY4US7qBH4vpHH5r-Ji97VUjjm5SQhSFCjqBqwr45ZIE"); // replace with your address from step 8
-  const counter = new ChainAds(counterAddress);
-  const counterContract = client.open(counter); 
+  const address = Address.parse(args.length > 0 ? args[0] : await ui.input('ChainAds address'));
 
-  // call the getter on chain
-  const counterValue = await counterContract.getCounter();
-  console.log("value:", counterValue.toString());
+  if (!(await provider.isContractDeployed(address))) {
+    ui.write(`Error: Contract at address ${address} is not deployed!`);
+    return;
+  }
+
+  const chainAds = provider.open(ChainAds.createFromAddress(address));
+
+  ui.write('Waiting for get counter...');
+
+  const counterNow = await chainAds.getCounter();
+
+  ui.clearActionPrompt();
+  ui.write(`Counter: ${counterNow} get successfully`);
 }
