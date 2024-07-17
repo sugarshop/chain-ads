@@ -1,6 +1,7 @@
 #include "imports/stdlib.fc";
 
 const op::increase = "op::increase"c; ;; create an opcode from string using the "c" prefix, this results in 0x7e8764ef opcode in this case
+const op::upload_ad = "op::upload_ad"c; ;; create an opcode from string using the "c" prefix, this results in 0x7e8764f0 opcode in this case
 
 ;; storage variables
 
@@ -9,13 +10,38 @@ const op::increase = "op::increase"c; ;; create an opcode from string using the 
 global int ctx_id;
 global int ctx_counter;
 
+global slice ctx_ad_tags;
+global slice ctx_wallet_address;
+
 ;; load_data populates storage variables using stored data
 () load_data() impure {
     var ds = get_data().begin_parse();
 
-    ctx_id = ds~load_uint(32);
-    ctx_counter = ds~load_uint(32);
-
+    if (ds.slice_empty?()) {
+        ;; Initialize with default values if the data cell is empty
+        ctx_id = 0;
+        ctx_counter = 0;
+        ctx_ad_tags = begin_cell().end_cell().begin_parse();
+        ctx_wallet_address = begin_cell().end_cell().begin_parse();
+    } else {
+        ;; Load data as before
+        ctx_id = ds~load_uint(32);
+        ctx_counter = ds~load_uint(32);
+        
+        ;; Load ad_tags, use empty slice if reference is absent
+        if (ds.slice_refs() > 0) {
+            ctx_ad_tags = ds~load_ref().begin_parse();
+        } else {
+            ctx_ad_tags = begin_cell().end_cell().begin_parse();
+        }
+        
+        ;; Load wallet_address, use empty slice if reference is absent
+        if (ds.slice_refs() > 0) {
+            ctx_wallet_address = ds~load_ref().begin_parse();
+        } else {
+            ctx_wallet_address = begin_cell().end_cell().begin_parse();
+        }
+    }
     ds.end_parse();
 }
 
@@ -25,6 +51,8 @@ global int ctx_counter;
         begin_cell()
             .store_uint(ctx_id, 32)
             .store_uint(ctx_counter, 32)
+            .store_ref(begin_cell().store_slice(ctx_ad_tags).end_cell())
+            .store_ref(begin_cell().store_slice(ctx_wallet_address).end_cell())
             .end_cell()
     );
 }
@@ -52,6 +80,23 @@ global int ctx_counter;
         save_data();
         return ();
     }
+    if(op == op::upload_ad) {
+        ;; at least 2 arguments
+        throw_unless(60, in_msg_body.slice_refs() >= 2);
+        
+        cell ad_tags_cell = in_msg_body~load_ref();
+        cell wallet_address_cell = in_msg_body~load_ref();
+
+        ctx_ad_tags = ad_tags_cell.begin_parse();
+        ctx_wallet_address = wallet_address_cell.begin_parse();
+
+        ;; 可以在这里添加数据验证逻辑
+        throw_if(61, ctx_ad_tags.slice_empty?());
+        throw_if(62, ctx_wallet_address.slice_empty?());
+
+        save_data();
+        return ();
+    }
 
     throw(0xffff); ;; if the message contains an op that is not known to this contract, we throw
 }
@@ -68,4 +113,22 @@ int get_counter() method_id {
 int get_id() method_id {
     load_data();
     return ctx_id;
+}
+
+slice get_ad_tags() method_id {
+    load_data();
+    ;; return a default value.
+    if (ctx_ad_tags.slice_empty?()) {
+        return begin_cell().store_uint(0, 32).end_cell().begin_parse();
+    }
+    return ctx_ad_tags;
+}
+
+slice get_wallet_address() method_id {
+    load_data();
+    ;; return a default value.
+    if (ctx_wallet_address.slice_empty?()) {
+        return begin_cell().store_uint(0, 32).end_cell().begin_parse();
+    }
+    return ctx_wallet_address;
 }

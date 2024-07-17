@@ -20,10 +20,11 @@ export async function run(provider: NetworkProvider, args: string[]) {
         increaseBy: 1,
         value: toNano('0.05'),
     });
-
-    ui.write('Waiting for counter to increase...');
-
+    
     let counterAfter = await chainAds.getCounter();
+
+    ui.write(`Waiting for counter to increase..., counterBefore ${counterBefore}.`);
+
     let attempt = 1;
     while (counterAfter === counterBefore) {
         ui.setActionPrompt(`Attempt ${attempt}`);
@@ -33,5 +34,5 @@ export async function run(provider: NetworkProvider, args: string[]) {
     }
 
     ui.clearActionPrompt();
-    ui.write('Counter increased successfully!');
+    ui.write(`Counter increased successfully! counterAfter ${counterAfter}`);
 }

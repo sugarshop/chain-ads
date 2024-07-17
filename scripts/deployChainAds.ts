@@ -8,6 +8,8 @@ export async function run(provider: NetworkProvider) {
             {
                 id: Math.floor(Math.random() * 10000),
                 counter: 0,
+                adTags: "",
+                walletAddress: ""
             },
             await compile('ChainAds')
         )
