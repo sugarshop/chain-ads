@@ -12,7 +12,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
         return;
     }
 
-    ui.write('Opeing contract...');
+    ui.write('Opening contract...');
     const chainAds = provider.open(ChainAds.createFromAddress(address));
     
     // ad tags: [A ~ Z]

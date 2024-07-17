@@ -142,8 +142,12 @@ export class ChainAds implements Contract {
 
     async getRawAdsLabels(provider: ContractProvider): Promise<Dictionary<bigint, Cell>> {
         const result = await provider.get('get_labels', []);
+        
+        if (!result || !result.stack || result.stack.remaining <= 0) {
+            return Dictionary.empty(Dictionary.Keys.BigUint(256), Dictionary.Values.Cell());
+        }
         const dictCell = result.stack.readCell();
-
+        
         // create a Dictionary
         const dict = Dictionary.loadDirect(
             Dictionary.Keys.BigUint(256), // BigUint(256) Type
