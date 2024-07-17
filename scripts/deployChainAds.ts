@@ -1,4 +1,4 @@
-import { toNano } from '@ton/core';
+import { toNano, Dictionary } from '@ton/core';
 import { ChainAds } from '../wrappers/ChainAds';
 import { compile, NetworkProvider } from '@ton/blueprint';
 
@@ -8,8 +8,10 @@ export async function run(provider: NetworkProvider) {
             {
                 id: Math.floor(Math.random() * 10000),
                 counter: 0,
-                adTags: "",
-                walletAddress: ""
+                inventoryAdTags: [],
+                inventoryWalletAddress: "",
+                budgetAdTags: [],
+                budgetWalletAddress: "",
             },
             await compile('ChainAds')
         )

@@ -1,7 +1,10 @@
 #include "imports/stdlib.fc";
 
+
 const op::increase = "op::increase"c; ;; create an opcode from string using the "c" prefix, this results in 0x7e8764ef opcode in this case
-const op::upload_ad = "op::upload_ad"c; ;; create an opcode from string using the "c" prefix, this results in 0x7e8764f0 opcode in this case
+const op::upload_inventory_ads = "op::upload_inventory_ads"c;
+const op::upload_budget_ads = "op::upload_budget_ads"c;
+const op::send_ton = "op::send_ton"c;
 
 ;; storage variables
 
@@ -10,8 +13,9 @@ const op::upload_ad = "op::upload_ad"c; ;; create an opcode from string using th
 global int ctx_id;
 global int ctx_counter;
 
-global slice ctx_ad_tags;
-global slice ctx_wallet_address;
+global cell  ctx_inventory_labels_dict;
+
+global cell ctx_budget_labels_dict;
 
 ;; load_data populates storage variables using stored data
 () load_data() impure {
@@ -21,25 +25,27 @@ global slice ctx_wallet_address;
         ;; Initialize with default values if the data cell is empty
         ctx_id = 0;
         ctx_counter = 0;
-        ctx_ad_tags = begin_cell().end_cell().begin_parse();
-        ctx_wallet_address = begin_cell().end_cell().begin_parse();
+        
+        ctx_inventory_labels_dict = new_dict();
+
+        ctx_budget_labels_dict = new_dict();
     } else {
         ;; Load data as before
         ctx_id = ds~load_uint(32);
         ctx_counter = ds~load_uint(32);
-        
-        ;; Load ad_tags, use empty slice if reference is absent
+
+        ;; Load labels_dict, use empty dict if reference is absent
         if (ds.slice_refs() > 0) {
-            ctx_ad_tags = ds~load_ref().begin_parse();
+            ctx_inventory_labels_dict = ds~load_dict();
         } else {
-            ctx_ad_tags = begin_cell().end_cell().begin_parse();
+            ctx_inventory_labels_dict = new_dict();
         }
-        
-        ;; Load wallet_address, use empty slice if reference is absent
+
+        ;; Load budget_labels_dict, use empty dict if reference is absent
         if (ds.slice_refs() > 0) {
-            ctx_wallet_address = ds~load_ref().begin_parse();
+            ctx_budget_labels_dict = ds~load_dict();
         } else {
-            ctx_wallet_address = begin_cell().end_cell().begin_parse();
+            ctx_budget_labels_dict = new_dict();
         }
     }
     ds.end_parse();
@@ -51,8 +57,8 @@ global slice ctx_wallet_address;
         begin_cell()
             .store_uint(ctx_id, 32)
             .store_uint(ctx_counter, 32)
-            .store_ref(begin_cell().store_slice(ctx_ad_tags).end_cell())
-            .store_ref(begin_cell().store_slice(ctx_wallet_address).end_cell())
+            .store_dict(ctx_inventory_labels_dict)
+            .store_dict(ctx_budget_labels_dict)
             .end_cell()
     );
 }
@@ -80,21 +86,62 @@ global slice ctx_wallet_address;
         save_data();
         return ();
     }
-    if(op == op::upload_ad) {
+
+    if(op == op::upload_inventory_ads) {
         ;; at least 2 arguments
         throw_unless(60, in_msg_body.slice_refs() >= 2);
         
-        cell ad_tags_cell = in_msg_body~load_ref();
-        cell wallet_address_cell = in_msg_body~load_ref();
+        cell ad_inventory_tags_cell = in_msg_body~load_ref();
+        cell inventory_wallet_address_cell = in_msg_body~load_ref();
 
-        ctx_ad_tags = ad_tags_cell.begin_parse();
-        ctx_wallet_address = wallet_address_cell.begin_parse();
+        ;; check data availablity.
+        throw_if(61, ad_inventory_tags_cell.begin_parse().slice_empty?());
 
-        ;; 可以在这里添加数据验证逻辑
-        throw_if(61, ctx_ad_tags.slice_empty?());
-        throw_if(62, ctx_wallet_address.slice_empty?());
+        int wallet_address_hash = slice_hash(inventory_wallet_address_cell.begin_parse());
+
+        ctx_inventory_labels_dict~udict_set_ref(256, wallet_address_hash, ad_inventory_tags_cell);
+        
+        (_, int key_exists) = ctx_inventory_labels_dict.udict_get?(256, wallet_address_hash);
+        throw_if(63, ~ key_exists);
 
         save_data();
+        return ();
+    }
+    if(op == op::upload_budget_ads) {
+        ;; at least 2 arguments
+        throw_unless(60, in_msg_body.slice_refs() >= 2);
+        
+        cell budget_tags_cell = in_msg_body~load_ref();
+        cell budget_address_cell = in_msg_body~load_ref();
+
+        ;; check data availablity.
+        throw_if(61, budget_tags_cell.begin_parse().slice_empty?());
+
+        int budget_address_hash = slice_hash(budget_address_cell.begin_parse());
+
+        ctx_budget_labels_dict~udict_set_ref(256, budget_address_hash, budget_tags_cell);
+        
+        (_, int key_exists) = ctx_budget_labels_dict.udict_get?(256, budget_address_hash);
+        throw_if(63, ~ key_exists);
+
+        save_data();
+        return ();
+    }
+    if (op == op::send_ton) {
+        slice to_address = in_msg_body~load_msg_addr();
+        int amount = in_msg_body~load_coins();
+        
+        throw_unless(402, my_balance >= amount);
+
+        var msg = begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(to_address)
+            .store_coins(amount)
+            .store_uint(0, 107)
+            .store_uint(0, 32)
+            .end_cell();
+
+        send_raw_message(msg, 1);
         return ();
     }
 
@@ -115,20 +162,20 @@ int get_id() method_id {
     return ctx_id;
 }
 
-slice get_ad_tags() method_id {
+cell get_inventory_labels() method_id {
     load_data();
     ;; return a default value.
-    if (ctx_ad_tags.slice_empty?()) {
-        return begin_cell().store_uint(0, 32).end_cell().begin_parse();
+    if (ctx_inventory_labels_dict.begin_parse().slice_empty?()) {
+        return new_dict();
     }
-    return ctx_ad_tags;
+    return ctx_inventory_labels_dict;
 }
 
-slice get_wallet_address() method_id {
+cell get_budget_labels() method_id {
     load_data();
     ;; return a default value.
-    if (ctx_wallet_address.slice_empty?()) {
-        return begin_cell().store_uint(0, 32).end_cell().begin_parse();
+    if (ctx_budget_labels_dict.begin_parse().slice_empty?()) {
+        return new_dict();
     }
-    return ctx_wallet_address;
+    return ctx_budget_labels_dict;
 }
