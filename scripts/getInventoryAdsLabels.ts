@@ -14,15 +14,15 @@ export async function run(provider: NetworkProvider, args: string[]) {
 
   const chainAds = provider.open(ChainAds.createFromAddress(address));
 
-  ui.write('Waiting for get ads labels...');
+  ui.write('Waiting for get inventory ads labels...');
 
-  const adsLabels = await chainAds.getLabels();
+  const adsLabels = await chainAds.getInventoryAdLabels();
   
   ui.clearActionPrompt();
-  ui.write('adsLabels:');
+  ui.write('InventoryAdsLabels:');
   Object.entries(adsLabels).forEach(([key, value]) => {
     ui.write(`key:  ${key} | value: ${value.join(', ')}`);
   });
 
-  ui.write(`adsLabels get successfully`);
+  ui.write(`InventoryAdsLabels get successfully`);
 }

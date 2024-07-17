@@ -14,16 +14,23 @@ export async function run(provider: NetworkProvider, args: string[]) {
 
     ui.write('Opening contract...');
     const chainAds = provider.open(ChainAds.createFromAddress(address));
+    
+    // ad tags: [A ~ Z]
+    const adTagsInput: string = await ui.input('Enter ad tags separated by space:');
+    const walletAddress: string = await ui.input('Enter Budget wallet address:');
 
-    ui.write('Waiting for get Ad tags address...');
+    // seperate tags by space
+    const adTags: string[] = adTagsInput.trim().split(/\s+/);
+    
+    ui.write('Ad Tags: ' + adTags.join(', '));
 
-    const uploadedAdTags = await chainAds.getAdTags();
-    ui.write(`Ad Tags: ${uploadedAdTags}`);
-
-    ui.write('Waiting for get wallet address...');
-    const uploadedWalletAddress = await chainAds.getWalletAddress();
-    ui.write(`Wallet Address: ${uploadedWalletAddress}`);
+    ui.write('Waiting for ad tags and wallet address uploaded...');
+    await chainAds.sendBudgetAds(provider.sender(), {
+        adTags,
+        walletAddress,
+        value: toNano('0.05'),
+    }, )
 
     ui.clearActionPrompt();
-    ui.write('Ad tags and wallet address get successfully!');
+    ui.write('ad tags and wallet address uploaded successfully!');
 }
