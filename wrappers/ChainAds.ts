@@ -101,19 +101,23 @@ export class ChainAds implements Contract {
         provider: ContractProvider,
         via: Sender,
         opts: {
-            adTags: string;
+            adTags: string[];
             walletAddress: string;
             value: bigint;
             queryID?: number;
         }
     ){
+        const adTagsCell = beginCell();
+        for (const tag of opts.adTags) {
+            adTagsCell.storeSlice(beginCell().storeStringRefTail(tag).endCell().beginParse());
+        }
         await provider.internal(via, {
             value: opts.value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
                 .storeUint(Opcodes.uploadAd, 32)
                 .storeUint(opts.queryID ?? 0, 64)
-                .storeSlice(beginCell().storeStringRefTail(opts.adTags).endCell().beginParse())
+                .storeRef(adTagsCell.endCell())
                 .storeSlice(beginCell().storeStringRefTail(opts.walletAddress).endCell().beginParse())
                 .endCell(),
         });
@@ -121,7 +125,14 @@ export class ChainAds implements Contract {
 
     async getAdTags(provider: ContractProvider) {
         const result = await provider.get('get_ad_tags', []);
-        return result.stack.readString() || "";
+
+        if (result && result.stack) {
+            const cell = result.stack.readCell();
+            
+            return this.parseCellToStringList(cell)
+        } else {
+            return [];
+        }
     }
 
     async getWalletAddress(provider: ContractProvider) {
@@ -131,8 +142,12 @@ export class ChainAds implements Contract {
 
     async getRawAdsLabels(provider: ContractProvider): Promise<Dictionary<bigint, Cell>> {
         const result = await provider.get('get_labels', []);
+        
+        if (!result || !result.stack || result.stack.remaining <= 0) {
+            return Dictionary.empty(Dictionary.Keys.BigUint(256), Dictionary.Values.Cell());
+        }
         const dictCell = result.stack.readCell();
-
+        
         // create a Dictionary
         const dict = Dictionary.loadDirect(
             Dictionary.Keys.BigUint(256), // BigUint(256) Type
@@ -144,16 +159,27 @@ export class ChainAds implements Contract {
     }
 
     // more readable method.
-    async getLabels(provider: ContractProvider): Promise<{ [key: string]: string }> {
+    async getLabels(provider: ContractProvider): Promise<{ [key: string]: string[] }> {
         const labels = await this.getRawAdsLabels(provider);
-        const readableLabels: { [key: string]: string } = {};
+        const readableLabels: { [key: string]: string[] } = {};
 
         for (const [key, value] of labels) {
             const keyString = key.toString(16).padStart(64, '0'); // to HEX String
-            const valueString = value.beginParse().loadStringTail(); // assume Cell stored type is String.
-            readableLabels[keyString] = valueString;
+            const valueStringList = this.parseCellToStringList(value); // assume Cell stored type is String.
+            readableLabels[keyString] = valueStringList;
         }
 
         return readableLabels;
+    }
+
+    parseCellToStringList(cell: Cell): string[] {
+        const adTags = [];
+
+        let slice = cell.beginParse();
+        while (slice.remainingRefs > 0) {
+            const tag = slice.loadStringRefTail();
+            adTags.push(tag);
+        }
+        return adTags;
     }
 }

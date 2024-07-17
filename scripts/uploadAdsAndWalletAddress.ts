@@ -12,12 +12,17 @@ export async function run(provider: NetworkProvider, args: string[]) {
         return;
     }
 
-    ui.write('Opeing contract...');
+    ui.write('Opening contract...');
     const chainAds = provider.open(ChainAds.createFromAddress(address));
     
     // ad tags: [A ~ Z]
-    const adTags: string = await ui.input('Enter ad tags:');
+    const adTagsInput: string = await ui.input('Enter ad tags separated by space:');
     const walletAddress: string = await ui.input('Enter DApp wallet address:');
+
+    // seperate tags by space
+    const adTags: string[] = adTagsInput.trim().split(/\s+/);
+    
+    ui.write('Ad Tags: ' + adTags.join(', '));
 
     ui.write('Waiting for Ad tags and wallet address uploaded...');
     await chainAds.sendUploadAd(provider.sender(), {
