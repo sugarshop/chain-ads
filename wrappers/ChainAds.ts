@@ -1,4 +1,4 @@
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode } from '@ton/core';
+import { Address, beginCell, Cell, Dictionary, Contract, contractAddress, ContractProvider, Sender, SendMode } from '@ton/core';
 
 export type ChainAdsConfig = {
     id: number;
@@ -102,5 +102,33 @@ export class ChainAds implements Contract {
     async getWalletAddress(provider: ContractProvider) {
         const result = await provider.get('get_wallet_address', []);
         return result.stack.readString() || "";
+    }
+
+    async getRawAdsLabels(provider: ContractProvider): Promise<Dictionary<bigint, Cell>> {
+        const result = await provider.get('get_labels', []);
+        const dictCell = result.stack.readCell();
+
+        // create a Dictionary
+        const dict = Dictionary.loadDirect(
+            Dictionary.Keys.BigUint(256), // BigUint(256) Type
+            Dictionary.Values.Cell(),       // Cell Type
+            dictCell
+        );
+
+        return dict;
+    }
+
+    // more readable method.
+    async getLabels(provider: ContractProvider): Promise<{ [key: string]: string }> {
+        const labels = await this.getRawAdsLabels(provider);
+        const readableLabels: { [key: string]: string } = {};
+
+        for (const [key, value] of labels) {
+            const keyString = key.toString(16).padStart(64, '0'); // to HEX String
+            const valueString = value.beginParse().loadStringTail(); // assume Cell stored type is String.
+            readableLabels[keyString] = valueString;
+        }
+
+        return readableLabels;
     }
 }
