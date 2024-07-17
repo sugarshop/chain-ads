@@ -199,6 +199,25 @@ export class ChainAds implements Contract {
                 .endCell(),
         });
     }
+
+    async getAddressesByTags(provider: ContractProvider, tags: string[], logic: 'AND' | 'OR' = 'OR'): Promise<string[]> {
+        const labels = await this.getInventoryAdLabels(provider);
+        const addresses: string[] = [];
+    
+        for (const [address, addressLables] of Object.entries(labels)) {
+            if (logic === 'AND') {
+                if (tags.every(lables => addressLables.includes(lables))) {
+                    addresses.push(address);
+                }
+            } else { // OR logic
+                if (tags.some(lables => addressLables.includes(lables))) {
+                    addresses.push(address);
+                }
+            }
+        }
+    
+        return addresses;
+    }
     
     // basic method to get ads labels dict {wallet_address: ads Tags}
     async getLabels(provider: ContractProvider, method: string): Promise<{ [key: string]: string[] }> {
@@ -242,24 +261,5 @@ export class ChainAds implements Contract {
             adTags.push(tag);
         }
         return adTags;
-    }
-
-    async getAddressesByLables(provider: ContractProvider, lables: string[], logic: 'AND' | 'OR' = 'OR'): Promise<string[]> {
-        const labels = await this.getLabels(provider);
-        const addresses: string[] = [];
-    
-        for (const [address, addressLables] of Object.entries(labels)) {
-            if (logic === 'AND') {
-                if (lables.every(lables => addressLables.includes(lables))) {
-                    addresses.push(address);
-                }
-            } else { // OR logic
-                if (lables.some(lables => addressLables.includes(lables))) {
-                    addresses.push(address);
-                }
-            }
-        }
-    
-        return addresses;
     }
 }

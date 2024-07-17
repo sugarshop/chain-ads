@@ -34,7 +34,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
     }
     
     ui.write(`Searching for addresses with lables: ${lables.join(', ')} using ${logic} logic`);
-    const addresses = await chainAds.getAddressesByLables(lables, logic as 'AND' | 'OR');
+    const addresses = await chainAds.getAddressesByTags(lables, logic as 'AND' | 'OR');
 
     if (addresses.length === 0) {
         ui.write(`No addresses found with the specified lables and logic.`);
