@@ -3,6 +3,7 @@
 
 const op::increase = "op::increase"c; ;; create an opcode from string using the "c" prefix, this results in 0x7e8764ef opcode in this case
 const op::upload_ad = "op::upload_ad"c;
+const op::send_ton = "op::send_ton"c;
 
 ;; storage variables
 
@@ -91,6 +92,23 @@ global slice ctx_wallet_address;
         ctx_ad_tags = ad_tags;
         ctx_wallet_address = wallet_address;
         save_data();
+        return ();
+    }
+    if (op == op::send_ton) {
+        slice to_address = in_msg_body~load_msg_addr();
+        int amount = in_msg_body~load_coins();
+        
+        throw_unless(402, my_balance >= amount);
+
+        var msg = begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(to_address)
+            .store_coins(amount)
+            .store_uint(0, 107)
+            .store_uint(0, 32)
+            .end_cell();
+
+        send_raw_message(msg, 1);
         return ();
     }
 

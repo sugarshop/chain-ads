@@ -19,6 +19,7 @@ export function chainAdsConfigToCell(config: ChainAdsConfig): Cell {
 export const Opcodes = {
     increase: 0x7e8764ef,
     uploadAd: 0x55b6ede3,
+    sendTon: 0x423ce057,
 };
 
 export class ChainAds implements Contract {
@@ -61,6 +62,30 @@ export class ChainAds implements Contract {
                 .endCell(),
         });
     }
+
+    async sendTon(
+        provider: ContractProvider,
+        via: Sender,
+        opts: {
+            toAddress: Address;
+            amount: bigint;
+            value: bigint;
+            queryID?: number;
+        }
+    ) {
+        await provider.internal(via, {
+            value: opts.value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.sendTon, 32)
+                .storeUint(opts.queryID ?? 0, 64)
+                .storeAddress(opts.toAddress)
+                .storeCoins(opts.amount)
+                .endCell(),
+        });
+    }
+    
+    
 
     async getCounter(provider: ContractProvider) {
         const result = await provider.get('get_counter', []);
