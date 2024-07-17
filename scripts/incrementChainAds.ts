@@ -23,7 +23,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
     
     let counterAfter = await chainAds.getCounter();
 
-    ui.write(`Waiting for counter to increase..., counterBefore ${counterBefore}, counterAfter ${counterAfter}`);
+    ui.write(`Waiting for counter to increase..., counterBefore ${counterBefore}.`);
 
     let attempt = 1;
     while (counterAfter === counterBefore) {
@@ -34,5 +34,5 @@ export async function run(provider: NetworkProvider, args: string[]) {
     }
 
     ui.clearActionPrompt();
-    ui.write('Counter increased successfully!');
+    ui.write(`Counter increased successfully! counterAfter ${counterAfter}`);
 }
