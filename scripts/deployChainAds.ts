@@ -16,9 +16,12 @@ export async function run() {
     {
       id: Math.floor(Math.random() * 10000),
       counter: 0,
+      adTags: "",
+      walletAddress: ""
     },
     chainAdsCode
   );
+  console.log("ChainAds config cell:", chainAds.init?.data.toString());
 
   // 检查合约是否已经部署
   console.log("contract address:", chainAds.address.toString());
@@ -59,8 +62,17 @@ export async function run() {
   }
   console.log("deploy transaction confirmed!");
 
+  // 添加延迟
+  await sleep(5000); 
+
   // 获取并打印 ID
-  console.log('ID', await chainAdsContract.getID());
+  try {
+    const id = await chainAdsContract.getID();
+    console.log('ID', id);
+  } catch (error) {
+    console.error('Error getting ID:', error);
+  }
+  
 }
 
 function sleep(ms: number) {

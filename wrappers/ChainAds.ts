@@ -3,10 +3,17 @@ import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, 
 export type ChainAdsConfig = {
     id: number;
     counter: number;
+    adTags?: string;
+    walletAddress?: string;
 };
 
 export function chainAdsConfigToCell(config: ChainAdsConfig): Cell {
-    return beginCell().storeUint(config.id, 32).storeUint(config.counter, 32).endCell();
+    return beginCell()
+        .storeUint(config.id, 32)
+        .storeUint(config.counter, 32)
+        .storeRef(beginCell().storeStringTail("").endCell())
+        .storeRef(beginCell().storeStringTail("").endCell()) 
+        .endCell();
 }
 
 export const Opcodes = {
@@ -89,11 +96,11 @@ export class ChainAds implements Contract {
 
     async getAdTags(provider: ContractProvider) {
         const result = await provider.get('get_ad_tags', []);
-        return result.stack.readString();
+        return result.stack.readString() || "";
     }
 
     async getWalletAddress(provider: ContractProvider) {
         const result = await provider.get('get_wallet_address', []);
-        return result.stack.readString();
+        return result.stack.readString() || "";
     }
 }
