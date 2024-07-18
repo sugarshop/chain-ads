@@ -33,7 +33,7 @@ initializeTonClient().then(async () => {
         }
     });
 
-    app.get('/increase', async (req, res) => {
+    app.post('/increase', async (req, res) => {
         try {
             await chainAdsContract.sendIncrease(sender, {
                 increaseBy: 1,
@@ -43,6 +43,36 @@ initializeTonClient().then(async () => {
         } catch (error) {
             res.status(500).json({ error: 'Error increasing counter' });
         }
+    });
+
+    app.post('/uploadtInventoryAds', async (req, res) => {
+        try {
+            const counter = await chainAdsContract.getCounter();
+            res.json({ counter: counter.toString() });
+        } catch (error) {
+            res.status(500).json({ error: 'Error fetching counter' });
+        }
+        res.status(500).json({ error: 'Error increasing counter' });
+    });
+
+    app.post('/uploadBudgetAds', async (req, res) => {
+        try {
+            const counter = await chainAdsContract.getCounter();
+            res.json({ counter: counter.toString() });
+        } catch (error) {
+            res.status(500).json({ error: 'Error fetching counter' });
+        }
+        res.status(500).json({ error: 'Error increasing counter' });
+    });
+
+    app.get('/pullAds', async (req, res) => {
+        try {
+            const counter = await chainAdsContract.getCounter();
+            res.json({ counter: counter.toString() });
+        } catch (error) {
+            res.status(500).json({ error: 'Error fetching counter' });
+        }
+        res.status(500).json({ error: 'Error increasing counter' });
     });
 
     // other router...
