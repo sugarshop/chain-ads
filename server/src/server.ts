@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import { ChainAds } from './contract/ChainAds';
 import dotenv from 'dotenv';
 import { initializeTonClient, getTonClient } from './tonClient';
@@ -10,9 +11,12 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // 初始化 TON Client 并启动服务器
 initializeTonClient().then(async () => {
@@ -25,6 +29,12 @@ initializeTonClient().then(async () => {
     const chainAdsContract = client.open(chainAds);
 
     const sender = await createSender(client);
+
+    const tagUrlMap: { [key: string]: string } = {
+        food: 'https://www.sheknows.com/food-and-recipes/slideshow/9035/los-angeles-food-trends/',
+        camera: 'https://www.freepik.es/fotos-premium/ilustracion-camara_62732202.htm',
+        women_dress: 'https://www.thedressoutlet.com/products/fitted-off-shoulder-long-slit-prom-dress?variant=39755767087165&pins_campaign_id=626752536343&pp=0&epik=dj0yJnU9ZzFGa0g5Q29hNFlab0lvc2wwNG45S0N1bnhuNVRwc2MmcD0xJm49WEEtUnZybkhfTWY2bDBIc3pwSFdrUSZ0PUFBQUFBR2FaS0Vv'
+    };
 
     app.get('/counter', async (req, res) => {
         try {
@@ -77,7 +87,6 @@ initializeTonClient().then(async () => {
                 <h2>Inventory ads uploaded successfully!</h2>
                 <p>Tags: ${adTags.join(', ')}</p>
                 <p>Contract Address: ${inventoryWalletAddress}</p>
-                <a href="/uploadInventoryAds">Upload more</a>
             `);
         } catch (error) {
             console.error('Error uploading inventory ads:', error);
@@ -116,26 +125,21 @@ initializeTonClient().then(async () => {
             });
 
             if (adTags.length > 0) {
-                tagUrlMap[adTags[0]] = url;
+                for (const tag of adTags) {
+                    tagUrlMap[tag] = url;
+                }
             }
 
             res.send(`
                 <h2>Inventory ads uploaded successfully!</h2>
                 <p>Tags: ${adTags.join(', ')}</p>
                 <p>Contract Address: ${inventoryWalletAddress}</p>
-                <a href="/uploadInventoryAds">Upload more</a>
             `);
         } catch (error) {
             console.error('Error uploading inventory ads:', error);
             res.status(500).send('Error uploading inventory ads');
         }
     });
-
-    const tagUrlMap: { [key: string]: string } = {
-        food: 'https://www.sheknows.com/food-and-recipes/slideshow/9035/los-angeles-food-trends/',
-        camera: 'https://www.freepik.es/fotos-premium/ilustracion-camara_62732202.htm',
-        women_dress: 'https://www.thedressoutlet.com/products/fitted-off-shoulder-long-slit-prom-dress?variant=39755767087165&pins_campaign_id=626752536343&pp=0&epik=dj0yJnU9ZzFGa0g5Q29hNFlab0lvc2wwNG45S0N1bnhuNVRwc2MmcD0xJm49WEEtUnZybkhfTWY2bDBIc3pwSFdrUSZ0PUFBQUFBR2FaS0Vv'
-    };
 
     app.get('/pullAds', (req, res) => {
         res.send(`
@@ -178,13 +182,14 @@ initializeTonClient().then(async () => {
                     displayAddresses = addresses;
                 }
                 
-                htmlContent += `<tr><td>${tag}</td><td>${displayAddresses.join('<br>')}</td></tr>`;
+                if(addresses && addresses.length > 0) {
+                    htmlContent += `<tr><td>${tag}</td><td>${displayAddresses.map(address => `<a href="${address}" target="_blank">${address}</a>`).join('<br>')}</td></tr>`;
+                }
                 addresses.forEach(address => totalUniqueAddresses.add(address));
             }
     
             htmlContent += '</table>';
             htmlContent += `<p>Total unique addresses: ${totalUniqueAddresses.size}</p>`;
-            htmlContent += '<a href="/pullAds">Search Again</a>';
     
             res.send(htmlContent);
         } catch (error) {
