@@ -65,7 +65,6 @@ initializeTonClient().then(async () => {
             if (adTags.length === 0) {
                 return res.status(400).send('Please provide at least one ad tag.');
             }
-            console.log("adTags:", adTags);
             const inventoryWalletAddress = sender.toString();
 
             await chainAdsContract.sendInventoryAds(sender, {
@@ -91,6 +90,8 @@ initializeTonClient().then(async () => {
             <form action="/uploadBudgetAds" method="POST">
                 <label for="adTags">Enter ad tags (separated by space):</label>
                 <input type="text" id="adTags" name="adTags" required>
+                 <label for="url">Enter URL for the tag:</label>
+                <input type="url" id="url" name="url" required><br><br>
                 <button type="submit">Upload</button>
             </form>
         `);
@@ -99,6 +100,7 @@ initializeTonClient().then(async () => {
     app.post('/uploadBudgetAds', async (req, res) => {
         try {
             const adTagsInput = req.body.adTags;
+            const url = req.body.url;
             const adTags = adTagsInput.trim().split(/\s+/);
             
             if (adTags.length === 0) {
@@ -113,6 +115,10 @@ initializeTonClient().then(async () => {
                 value: toNano('0.05'),
             });
 
+            if (adTags.length > 0) {
+                tagUrlMap[adTags[0]] = url;
+            }
+
             res.send(`
                 <h2>Inventory ads uploaded successfully!</h2>
                 <p>Tags: ${adTags.join(', ')}</p>
@@ -125,7 +131,7 @@ initializeTonClient().then(async () => {
         }
     });
 
-    const tagUrlMap = {
+    const tagUrlMap: { [key: string]: string } = {
         food: 'https://www.sheknows.com/food-and-recipes/slideshow/9035/los-angeles-food-trends/',
         camera: 'https://www.freepik.es/fotos-premium/ilustracion-camara_62732202.htm',
         women_dress: 'https://www.thedressoutlet.com/products/fitted-off-shoulder-long-slit-prom-dress?variant=39755767087165&pins_campaign_id=626752536343&pp=0&epik=dj0yJnU9ZzFGa0g5Q29hNFlab0lvc2wwNG45S0N1bnhuNVRwc2MmcD0xJm49WEEtUnZybkhfTWY2bDBIc3pwSFdrUSZ0PUFBQUFBR2FaS0Vv'
