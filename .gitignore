@@ -8,7 +8,8 @@ dist
 .vscode/*
 .history/
 *.vsix
-
+.env
+./server/.env
 # IDEA files
 .idea
 
