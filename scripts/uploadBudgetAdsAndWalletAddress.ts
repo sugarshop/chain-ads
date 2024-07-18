@@ -17,7 +17,7 @@ export async function run(provider: NetworkProvider, args: string[]) {
     
     // ad tags: [A ~ Z]
     const adTagsInput: string = await ui.input('Enter ad tags separated by space:');
-    const walletAddress: string = await ui.input('Enter Budget wallet address:');
+    const walletAddress: string = provider.sender().toString();
 
     // seperate tags by space
     const adTags: string[] = adTagsInput.trim().split(/\s+/);
