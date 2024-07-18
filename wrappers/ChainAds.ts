@@ -200,23 +200,52 @@ export class ChainAds implements Contract {
         });
     }
 
-    async getAddressesByTags(provider: ContractProvider, tags: string[], logic: 'AND' | 'OR' = 'OR'): Promise<string[]> {
-        const labels = await this.getInventoryAdLabels(provider);
-        const addresses: string[] = [];
+     private async getAddressesByTags(
+        provider: ContractProvider, 
+        tags: string[], 
+        logic: 'AND' | 'OR' = 'OR',
+        getLabelsMethod: 'getInventoryAdLabels' | 'getBudgetAdLabels'
+    ): Promise<{ [tag: string]: string[] }> {
+        const labels = await this[getLabelsMethod](provider);
+        const result: { [tag: string]: string[] } = {};
     
-        for (const [address, addressLables] of Object.entries(labels)) {
+        tags.forEach(tag => {
+            result[tag] = [];
+        });
+
+        for (const [address, addressTags] of Object.entries(labels)) {
             if (logic === 'AND') {
-                if (tags.every(lables => addressLables.includes(lables))) {
-                    addresses.push(address);
+                if (tags.every(tag => addressTags.includes(tag))) {
+                    tags.forEach(tag => {
+                        result[tag].push(address);
+                    });
                 }
             } else { // OR logic
-                if (tags.some(lables => addressLables.includes(lables))) {
-                    addresses.push(address);
-                }
+                tags.forEach(tag => {
+                    if (addressTags.includes(tag)) {
+                        result[tag].push(address);
+                    }
+                });
             }
         }
     
-        return addresses;
+        return result;
+    }
+
+    async getInventoryAddressesByTags(
+        provider: ContractProvider, 
+        tags: string[], 
+        logic: 'AND' | 'OR' = 'OR'
+    ): Promise<{ [tag: string]: string[] }> {
+        return this.getAddressesByTags(provider, tags, logic, 'getInventoryAdLabels');
+    }
+
+    async getBudgetAddressesByTags(
+        provider: ContractProvider, 
+        tags: string[], 
+        logic: 'AND' | 'OR' = 'OR'
+    ): Promise<{ [tag: string]: string[] }> {
+        return this.getAddressesByTags(provider, tags, logic, 'getBudgetAdLabels');
     }
     
     // basic method to get ads labels dict {wallet_address: ads Tags}
