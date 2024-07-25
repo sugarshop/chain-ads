@@ -45,7 +45,7 @@ initializeTonClient().then(async () => {
             res.status(500).json({ error: 'Error increasing counter' });
         }
     });
-
+  
     app.get('/uploadInventoryAds', (req, res) => {
         res.send(`
             <form action="/uploadInventoryAds" method="POST">
