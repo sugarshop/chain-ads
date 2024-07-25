@@ -56,6 +56,16 @@ initializeTonClient().then(async () => {
             res.status(500).json({ error: 'Error increasing counter' });
         }
     });
+  
+    app.get('/uploadInventoryAds', (req, res) => {
+        res.send(`
+            <form action="/uploadInventoryAds" method="POST">
+                <label for="adTags">Enter ad tags (separated by space):</label>
+                <input type="text" id="adTags" name="adTags" required>
+                <button type="submit">Upload</button>
+            </form>
+        `);
+    });
 
     app.get('/uploadInventoryAds', (req, res) => {
         res.send(`
@@ -89,6 +99,37 @@ initializeTonClient().then(async () => {
                 <p>Contract Address: ${inventoryWalletAddress}</p>
                 <a href="/uploadInventoryAds">Upload more</a>
             `);
+        } catch (error) {
+            console.error('Error uploading inventory ads:', error);
+            res.status(500).send('Error uploading inventory ads');
+        }
+    });
+
+    app.post('/uploadInventoryAdsTags', async (req, res) => {
+        try {
+            const adTagsInput = req.body.adTags;
+            const adTags = adTagsInput.trim().split(/\s+/);
+            
+            if (adTags.length === 0) {
+                return res.status(400).send('Please provide at least one ad tag.');
+            }
+            const inventoryWalletAddress = sender.toString();
+
+            await chainAdsContract.sendInventoryAds(sender, {
+                adTags: adTags,
+                walletAddress: inventoryWalletAddress,
+                value: toNano('0.05'),
+            });
+
+            // return success message.
+            res.status(200).json({
+                success: true,
+                message: 'success',
+                data: {
+                    tags: adTags,
+                    contractAddress: inventoryWalletAddress
+                }
+            });
         } catch (error) {
             console.error('Error uploading inventory ads:', error);
             res.status(500).send('Error uploading inventory ads');
@@ -201,10 +242,41 @@ initializeTonClient().then(async () => {
             htmlContent += '</table>';
             htmlContent += `<p>Total unique addresses: ${totalUniqueAddresses.size}</p>`;
             htmlContent += '<a href="/pullAds">Search Again</a>';  
+            htmlContent += '<a href="/pullAds">Search Again</a>';
             res.send(htmlContent);
         } catch (error) {
             console.error('Error fetching budget addresses by tags:', error);
             res.status(500).send('Error fetching budget addresses by tags');
+        }
+    });
+
+    app.post('/pullAdsByTags', async (req, res) => {
+        try {
+            const tags = req.body.tags.split(' ').map((tag: string) => tag.trim()).filter((tag: string) => tag !== '');
+            const logic = req.body.logic as 'AND' | 'OR';
+    
+            if (tags.length === 0) {
+                return res.status(400).send('Please provide at least one tag.');
+            }
+    
+            const result = await chainAdsContract.getBudgetAddressesByTags(tags, logic);
+            
+            const tagUrlDictionary = createTagUrlDictionary(result);
+
+            res.status(200).json({
+                success: true,
+                message: 'success',
+                data: {
+                    ads: tagUrlDictionary,
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching budget addresses by tags:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error fetching budget addresses by tags',
+                error: error
+            });
         }
     });
 
@@ -217,3 +289,26 @@ initializeTonClient().then(async () => {
     console.error("Failed to start the server:", error);
     process.exit(1);
 });
+
+const tagUrlMapMap = new Map<string, string>([
+    ['food', 'https://www.sheknows.com/food-and-recipes/slideshow/9035/los-angeles-food-trends/'],
+    ['camera', 'https://www.freepik.es/fotos-premium/ilustracion-camara_62732202.htm'],
+    ['women_dress', 'https://www.thedressoutlet.com/products/fitted-off-shoulder-long-slit-prom-dress?variant=39755767087165&pins_campaign_id=626752536343&pp=0&epik=dj0yJnU9ZzFGa0g5Q29hNFlab0lvc2wwNG45S0N1bnhuNVRwc2MmcD0xJm49WEEtUnZybkhfTWY2bDBIc3pwSFdrUSZ0PUFBQUFBR2FaS0Vv']
+]);
+
+function getUrlByTag(tag: string): string | undefined {
+    return tagUrlMapMap.get(tag);
+}
+
+function createTagUrlDictionary(result: { [tag: string]: string[] }): { [key: string]: string } {
+    const tagUrlDictionary: { [key: string]: string } = {};
+
+    for (const [tag, addresses] of Object.entries(result)) {
+        const url = tagUrlMapMap.get(tag);
+        if (url) {
+            tagUrlDictionary[tag] = url;
+        }
+    }
+
+    return tagUrlDictionary;
+}
