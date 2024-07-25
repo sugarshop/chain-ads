@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import { ChainAds } from './contract/ChainAds';
 import dotenv from 'dotenv';
 import { initializeTonClient, getTonClient } from './tonClient';
@@ -10,8 +11,12 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // 初始化 TON Client 并启动服务器
 initializeTonClient().then(async () => {
@@ -24,6 +29,12 @@ initializeTonClient().then(async () => {
     const chainAdsContract = client.open(chainAds);
 
     const sender = await createSender(client);
+
+    const tagUrlMap: { [key: string]: string } = {
+        food: 'https://www.sheknows.com/food-and-recipes/slideshow/9035/los-angeles-food-trends/',
+        camera: 'https://www.freepik.es/fotos-premium/ilustracion-camara_62732202.htm',
+        women_dress: 'https://www.thedressoutlet.com/products/fitted-off-shoulder-long-slit-prom-dress?variant=39755767087165&pins_campaign_id=626752536343&pp=0&epik=dj0yJnU9ZzFGa0g5Q29hNFlab0lvc2wwNG45S0N1bnhuNVRwc2MmcD0xJm49WEEtUnZybkhfTWY2bDBIc3pwSFdrUSZ0PUFBQUFBR2FaS0Vv'
+    };
 
     app.get('/counter', async (req, res) => {
         try {
@@ -46,6 +57,16 @@ initializeTonClient().then(async () => {
         }
     });
   
+    app.get('/uploadInventoryAds', (req, res) => {
+        res.send(`
+            <form action="/uploadInventoryAds" method="POST">
+                <label for="adTags">Enter ad tags (separated by space):</label>
+                <input type="text" id="adTags" name="adTags" required>
+                <button type="submit">Upload</button>
+            </form>
+        `);
+    });
+
     app.get('/uploadInventoryAds', (req, res) => {
         res.send(`
             <form action="/uploadInventoryAds" method="POST">
@@ -146,6 +167,9 @@ initializeTonClient().then(async () => {
             });
 
             if (adTags.length > 0) {
+                for (const tag of adTags) {
+                    tagUrlMap[tag] = url;
+                }
                 tagUrlMap[adTags[0]] = url;
             }
 
@@ -208,14 +232,17 @@ initializeTonClient().then(async () => {
                     displayAddresses = addresses;
                 }
                 
+                if(addresses && addresses.length > 0) {
+                    htmlContent += `<tr><td>${tag}</td><td>${displayAddresses.map(address => `<a href="${address}" target="_blank">${address}</a>`).join('<br>')}</td></tr>`;
+                }
                 htmlContent += `<tr><td>${tag}</td><td>${displayAddresses.join('<br>')}</td></tr>`;
                 addresses.forEach(address => totalUniqueAddresses.add(address));
             }
     
             htmlContent += '</table>';
             htmlContent += `<p>Total unique addresses: ${totalUniqueAddresses.size}</p>`;
+            htmlContent += '<a href="/pullAds">Search Again</a>';  
             htmlContent += '<a href="/pullAds">Search Again</a>';
-    
             res.send(htmlContent);
         } catch (error) {
             console.error('Error fetching budget addresses by tags:', error);
