@@ -6,11 +6,17 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const ui = provider.ui();
     
     const recipientAddress = Address.parse(args.length > 0 ? args[0] : await ui.input('Enter the recipient address:'));
-    const amount = args.length > 1 ? args[1] : await ui.input('Enter the amount of TON to send:');
+
+    if (!(await provider.isContractDeployed(recipientAddress))) {
+        ui.write(`Error: Contract at address ${recipientAddress} is not deployed!`);
+        return;
+    }
 
     // get contract address
-    const contractAddress = await ui.input('Enter the contract address:');
-    const chainAds = provider.open(ChainAds.createFromAddress(Address.parse(contractAddress)));
+    const chainAds = provider.open(ChainAds.createFromAddress(Address.parse(recipientAddress.toString())));
+
+    const amount = args.length > 1 ? args[1] : await ui.input('Enter the amount of TON to deposit:');
+
 
     // transfer amount to nano
     const amountNano = toNano(amount);
