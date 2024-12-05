@@ -1,5 +1,0 @@
-networks:
-  testnet:
-    server: https://net.ton.dev
-    endpoints:
-      - https://testnet.toncenter.com/api/v2/jsonRPC
